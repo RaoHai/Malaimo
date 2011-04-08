@@ -1,0 +1,12 @@
+﻿## Interface: 40000
+## Author: surgesoft
+## Notes:  瞎哼哼
+## Version: 0.1
+## Title: |cffccccffMalaimo|r v0.1
+## SavedVariablesPerCharacter: Malaimo_OptCar
+## SavedVariables:Malaimo_Opt
+
+Icon.lua
+MalaimoConfig.lua
+Malaimo.lua
+

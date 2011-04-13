@@ -14,17 +14,49 @@ local class = select(2, UnitClass("player"));
 local MalaimoConfig={}--=ns.MalaimoSpells[class]
 local Equal = ns.Equal
 
+local GetFormattedTime = function(s)
+	if s >= 86400 then
+		return format('%dd', floor(s/86400 + 0.5))
+	elseif s >= 3600 then
+		return format('%dh', floor(s/3600 + 0.5))
+	elseif s >= 60 then
+		return format('%dm', floor(s/60 + 0.5))
+	end
+	return format('%ds', floor(s + 0.5))
+end
+local function IconResponse(frame,texture)
+	if(texture) then
+	if(not frame.icon:GetTexture())then 
+	--Response when appeared
+	if frame.sound1 then
+	PlaySound(frame.sound1)
+	end
+	end
+		if(frame.tex) then
+			frame.icon:SetTexture(frame.tex)
+		else
+			frame.icon:SetTexture(texture)
+		end
+	
+	else
+	if(frame.icon:GetTexture())then 
+	--when disappeared
+	if frame.sound2 then
+	PlaySound(frame.sound2)
+	end
+	end
+	frame.icon:SetTexture(texture)
+	
+	end
+end 
+
 local function OnUpdate(self, elapsed)
 		if ( self.duration and self.duration > 0 ) then
 			if(self.cd) then
 			local t=self.expirationTime+self.duration-GetTime()
-			if t<= 60 then
-				self.time:SetFormattedText("%.1f",(t));
-			else
-				self.time:SetFormattedText("%d:%.1d",(t/60),(t/2));
-			end
 			if(t>2) then
 			CooldownFrame_SetTimer(self.cooldown, self.expirationTime, self.duration, 1);
+			self.time:SetText(GetFormattedTime(t));
 			self.icon:Show()
 			self.texture:Show()
 			self.Shadow:Show() 
@@ -37,11 +69,7 @@ local function OnUpdate(self, elapsed)
 			end
 			else
 			t=self.expirationTime-GetTime()
-			if t<= 60 then
-				self.time:SetFormattedText("%.1f",(t));
-			else
-				self.time:SetFormattedText("%d:%.1d",(t/60),(t/2));
-			end
+			self.time:SetText(GetFormattedTime(t));
 			CooldownFrame_SetTimer(self.cooldown, self.expirationTime-self.duration, self.duration, 1);
 			end
 		else
@@ -69,25 +97,38 @@ end
 function Update(frame)
 		if(not frame.icon) then
 		for i=1,#frame.list do
-				local n=frame.list[i];
+				local n=frame.list[i].id;
 				local m;
 				local ptAt;
 				tempframe = CreateFrame("Frame",nil,UIParent)
-				if(not(frame.Pointlist[i]) or unpack(frame.Pointlist[i])==0) then
-					if (i>=1) then m=frame.list[i-1]; end
+				if(not(frame.list[i].setpoint) or unpack(frame.list[i].setpoint)==0) then
+					if (i>=1) then m=frame.list[i-1].id; end
 					if(frame.Direction=="LEFT") then ptAt="RIGHT" else ptAt="LEFT" end
 					tempframe:SetPoint(frame.Direction,frame.bufflist[m],ptAt,0,0)
 				else
-					tempframe:SetPoint(unpack(frame.Pointlist[i]))
+					tempframe:SetPoint(unpack(frame.list[i].setpoint))
 				end
 				tempframe:SetSize(frame:GetWidth(),frame:GetWidth())
 				tempframe.icon = tempframe:CreateTexture(nil, "ARTWORK");
-				tempframe.name=frame.list[i]
+			
+				tempframe.name=frame.list[i].id
 				tempframe.seted=false
-				
+				if(frame.list[i].sound1) then
+					tempframe.sound1=frame.list[i].sound1
+				end
+				if(frame.list[i].sound2) then
+					tempframe.sound2=frame.list[i].sound2
+				end
 
 				
 				IconDressUp(tempframe)
+					if(frame.list[i].tex) then
+						tempframe.tex=frame.list[i].tex
+						tempframe.texture:SetAlpha(0)
+						tempframe.Shadow:SetAlpha(0)
+						tempframe.cooldown:ClearAllPoints()
+						
+				end
 				if frame.filter=="cooldown" then tempframe.cd=true tempframe.icon:Hide() end
 				frame.bufflist[n]=tempframe;
 				tempframe:SetScript("OnUpdate", OnUpdate);
@@ -100,20 +141,20 @@ local unit = ...;
 if ( ( unit == "target" or unit == "player" ) or event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_ENTERING_WORLD" or event == "SPELL_UPDATE_COOLDOWN" ) then
 	local data, name, rank, icon, count, debuffType, duration, expirationTime, caster, isStealable, start, enabled, slotLink, slotID,spn,e;
 	for i=1,#self.list do
-			local id = self.list[i]
+			local id = self.list[i].id
 				if self.filter=="buff" then
 				spn,_,ticon = GetSpellInfo(id)
 				
-				name, rank, icon, count, debuffType, duration, expirationTime, caster, isStealable = UnitBuff(self.buffunit or "Player", spn or "33763");
+				name, rank, icon, count, debuffType, duration, expirationTime, caster, isStealable = UnitBuff(self.buffunit or "Player", spn );
 			
 			elseif self.filter=="debuff" then
 				spn = GetSpellInfo(id)
 				spn,_,ticon = GetSpellInfo(id)				
-				name, rank, icon, count, debuffType, duration, expirationTime, caster, isStealable = UnitDebuff(self.buffunit or "target", spn or "33763");
+				name, rank, icon, count, debuffType, duration, expirationTime, caster, isStealable = UnitDebuff(self.buffunit or "target", spn );
 				if (Equal[id] and not name )then
 				tspn = GetSpellInfo(Equal[id])
 				--tspn,_,ticon = GetSpellInfo(Equal[id])				
-				name, rank, icon, count, debuffType, duration, expirationTime, caster, isStealable = UnitDebuff(self.buffunit or "target", tspn or "33763");
+				name, rank, icon, count, debuffType, duration, expirationTime, caster, isStealable = UnitDebuff(self.buffunit or "target", tspn );
 				if(name) then spn=tspn end;
 				end
 			else
@@ -140,7 +181,8 @@ if ( ( unit == "target" or unit == "player" ) or event == "PLAYER_TARGET_CHANGED
 					_,_,icon = GetSpellInfo(spn);
 					ticon=icon
 				end
-					self.bufflist[id].icon:SetTexture(icon)
+					IconResponse(self.bufflist[id],icon)
+					--self.bufflist[id].icon:SetTexture(icon)
 					self.bufflist[id].expirationTime = expirationTime or start ;
 					self.bufflist[id].duration= duration;
 					self.bufflist[id].count:SetText(count and (count > 1 and count or ""));
@@ -163,7 +205,8 @@ if ( ( unit == "target" or unit == "player" ) or event == "PLAYER_TARGET_CHANGED
 			end
 			end
 			if(self.caster==caster or self.caster=="anyone" or self.filter=="cooldown") then
-			self.bufflist[id].icon:SetTexture(icon)
+			--self.bufflist[id].icon:SetTexture(icon)
+			IconResponse(self.bufflist[id],icon)
 			if( self.filter~="cooldown") then
 				if(icon) then self.bufflist[id].texture:Show() self.bufflist[id].Shadow:Show() else self.bufflist[id].texture:Hide() self.bufflist[id].Shadow:Hide() end
 			end
@@ -172,18 +215,19 @@ if ( ( unit == "target" or unit == "player" ) or event == "PLAYER_TARGET_CHANGED
 			self.bufflist[id].count:SetText(count and (count > 1 and count or ""));
 			--if icon then self.bufflist[id].button:Show() else self.bufflist[id].button:Hide() end
 			elseif (caster==nil) then
-			self.bufflist[id].icon:SetTexture()
+			IconResponse(self.bufflist[id])
+			--self.bufflist[id].icon:SetTexture()
 				if(icon) then self.bufflist[id].texture:Show() self.bufflist[id].Shadow:Show() else self.bufflist[id].texture:Hide() self.bufflist[id].Shadow:Hide() end
 			self.bufflist[id].expirationTime = 0 ;
 			self.bufflist[id].duration= 0;
 			self.bufflist[id].count:SetText();
 			else
-			self.bufflist[id].icon:SetTexture()
+			IconResponse(self.bufflist[id])
 			end
 			if(ns.test) then
 		
-			self.bufflist[id].icon:SetTexture(ticon)
-			self.bufflist[id].icon:Show()
+			IconResponse(self.bufflist[id],ticon)
+			self.bufflist[id]:Show()
 			end
 			end
 		
@@ -195,7 +239,7 @@ local f=CreateFrame("Frame")
 f:RegisterEvent("ADDON_LOADED");
 f:SetScript("OnEvent", function(self,event,...)
 	if(event=="ADDON_LOADED" and ...=="Malaimo") then
-		MalaimoConfig=th_table_dup(Malaimo_Opt[class])--=ns.MalaimoSpells[class]
+		MalaimoConfig=ns.MalaimoSpells[class]--th_table_dup(Malaimo_Opt[class])--=ns.MalaimoSpells[class]
 		CreateMalaimo()
 	end
 end);
